@@ -6,8 +6,7 @@ import cors from "cors";
 
 const app = express();
 
-app.use(express.json());
-app.use(clerkMiddleware());
+// CORS must be BEFORE other middleware
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
@@ -17,11 +16,13 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
+      // Allow requests with no origin (Postman, mobile apps, server-to-server)
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.log("Blocked origin:", origin); // Debug log
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -30,6 +31,11 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+app.options("*", cors());
+
+app.use(express.json());
+app.use(clerkMiddleware());
 
 app.use("/api/notes", notesRouter);
 
