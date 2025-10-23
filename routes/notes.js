@@ -71,8 +71,45 @@ notesRouter.post("/new", requireAuth(), async (req, res) => {
     res.status(500).json({ error: "Failed to create note: " + error.message });
   }
 });
+notesRouter.get("/:id", requireAuth(), async (req, res) => {
+  const { userId } = getAuth(req);
+  const { id } = req.params;
 
-// ✅ UPDATE a note
+  try {
+    const { data, error } = await supabase
+      .from("Notes")
+      .select(
+        `
+        id, 
+        title, 
+        body, 
+        created_at,
+        notes_tags ( 
+          tags ( tag_name ) 
+        )
+      `
+      )
+      .eq("id", id)
+      .eq("clerk_user_id", userId)
+      .single();
+
+    if (error) throw error;
+
+    const note = {
+      id: data.id,
+      title: data.title,
+      body: data.body,
+      created_at: data.created_at,
+      tags: data.notes_tags?.map((nt) => nt.tags.tag_name) || [],
+    };
+
+    res.json({ note });
+  } catch (error) {
+    console.error("GET notes error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 notesRouter.put("/:id", requireAuth(), async (req, res) => {
   const { userId } = getAuth(req);
   const { id } = req.params;
@@ -81,7 +118,6 @@ notesRouter.put("/:id", requireAuth(), async (req, res) => {
   if (!title) {
     return res.status(400).json({ error: "Title is required." });
   }
-
   try {
     const { data, error } = await supabase.rpc("update_note_with_tags", {
       note_id_to_update: parseInt(id),
@@ -106,7 +142,6 @@ notesRouter.put("/:id", requireAuth(), async (req, res) => {
   }
 });
 
-// ✅ DELETE a note
 notesRouter.delete("/:id", requireAuth(), async (req, res) => {
   const { userId } = getAuth(req);
   const { id } = req.params;
@@ -114,7 +149,7 @@ notesRouter.delete("/:id", requireAuth(), async (req, res) => {
   try {
     const { error, count } = await supabase
       .from("Notes")
-      .delete({ count: "exact" })
+      .delete()
       .eq("id", id)
       .eq("clerk_user_id", userId);
 
